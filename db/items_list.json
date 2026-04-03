@@ -1,0 +1,85 @@
+{
+  "Relics": [
+    "Purification_Beads", "Blink_Rune", "Agility_Relic", "Aegis_of_Acceleration",
+    "Sundering_Arc", "Phantom_Shell", "Shell_of_Rebuke", "Sundering_Echo",
+    "Talisman_of_Purification", "Blinking_Abyss", "Time-lock_Aegis", "Agility_Greaves"
+  ],
+  "Curios": [
+    "Meditation", "Heimdallr%27s_Sight", "Gjallarflare", "Bifrost_Shard", "Battle_Cry"
+  ],
+  "Consumables": [
+    "Eyes_of_the_Jungle", "Runic_Bomb", "Crystalline_Egg", "Obsidian_Dagger",
+    "Health_Potion", "Vision_Ward", "Multi_Potion", "Mana_Potion", "Sentry_Ward",
+    "Health_Chalice", "Warding_Chalice", "Elixir_of_Strength", "Elixir_of_Intelligence"
+  ],
+  "Starters": [
+    "Selflessness", "Leather_Cowl", "Bluestone_Pendant", "Vampiric_Shroud",
+    "War_Flag", "Conduit_Gem", "Gilded_Arrow", "Sands_Of_Time",
+    "Bumba%27s_Golden_Dagger", "Bumba%27s_Cudgel", "Warrior%27s_Axe", "Death%27s_Toll"
+  ],
+  "Upgraded_Starters": [
+    "Heroism", "War_Banner", "Bluestone_Brooch", "Hunter%27s_Cowl",
+    "Blood-soaked_Shroud", "Sharpshooter%27s_Arrow", "Bumba%27s_Spear",
+    "Archmage%27s_Gem", "Sundering_Axe", "Death%27s_Embrace",
+    "Bumba%27s_Hammer", "Pendulum_Of_The_Ages"
+  ],
+  "Tier_I": [
+    "Bow", "Shield", "Sash", "Rune", "Reliquary", "Medallion",
+    "Circlet", "Ring", "Axe", "Gem", "Scythe", "Sabre"
+  ],
+  "Tier_II": [
+    "Mana_Tome", "Adroit_Ring", "Olmec_Blue", "Hunter%27s_Bow", "Circle_of_Protection",
+    "Bowl_Drum", "Legionnaire_Armor", "Cleric%27s_Cloak", "Odigba", "Sage%27s_Ring",
+    "Veve_Charm", "Engraved_Guard", "Captain%27s_Ring", "Runic_Hide",
+    "Medal_of_Disruption", "Cursed_Sickle", "Medal_of_Defense", "Plated_Metal",
+    "Battle_Axe", "Soul_Reliquary", "Combat_Boots", "Enchanted_Bracelet",
+    "Void_Shard", "Killing_Stone", "Manchu_Bow", "Oracle_Staff", "Flaming_Pearl",
+    "Ring_of_Dispel", "Hooked_Sword", "Skeggox", "Survivor%27s_Sash", "Caestus",
+    "Infused_Axe", "Zither", "Stalwart_Sigil", "Evil_Eye", "Adamantine_Sickle",
+    "Lucerne_Hammer", "Mote_of_Chaos", "Kopesh"
+  ],
+  "Tier_III_Offensive": [
+    "Blood-Bound_Book", "Bancroft%27s_Talon", "Book_of_Thoth", "Eros%27_Bow",
+    "Sun_Beam_Bow", "Jotunn%27s_Revenge", "Chronos%27_Pendant", "Transcendence",
+    "Odysseus%27_Bow", "Rage", "Hydra%27s_Lament", "Vital_Amplifier",
+    "Daybreak_Gavel", "Bracer_of_The_Abyss", "Barbed_Carver", "Nimble_Ring",
+    "Mercury%27s_Talaria", "Dagger_of_Frenzy", "Lernaean_Bow", "Devourer%27s_Gauntlet",
+    "Divine_Ruin", "Soul_Gem", "The_Executioner", "Gem_of_Focus", "Bloodforge",
+    "Polynomicon", "Necronomicon", "Oath-Sworn_Spear", "Bragi%27s_Harp",
+    "Qin%27s_Blade", "Typhon%E2%80%99s_Heart", "Gluttonous_Grimoire", "Tyrfing",
+    "Death_Metal", "The_Reaper", "Ancient_Signet", "Pendulum_Blade",
+    "Hastened_Fatalis", "The_Cosmic_Horror", "Spear_of_Desolation",
+    "Avenging_Blade", "Arondight", "Riptalon", "Tekko-Kagi",
+    "Musashi%27s_Dual_Swords", "Doom_Orb", "Jade_Scepter", "Staff_of_Myrddin",
+    "Demon_Blade", "Damaru", "The_World_Stone", "The_Crusher", "Totem_of_Death",
+    "Omen_Drum", "Deathbringer", "Soul_Reaver", "Rod_of_Tahuti", "Heartseeker",
+    "Obsidian_Shard", "Titan%27s_Bane", "Dreamer%27s_Idol", "Avatar%27s_Parashu"
+  ],
+  "Tier_III_Defensive": [
+    "Gauntlet_of_Thebes", "Yogi%27s_Necklace", "Eye_of_Providence", "Chandra%27s_Grace",
+    "Spectral_Armor", "Amanita_Charm", "Genji%27s_Guard", "Alchemist_Coat",
+    "Phoenix_Feather", "Kinetic_Cuirass", "Shield_of_the_Phoenix",
+    "Breastplate_of_Valor", "Screeching_Gargoyle", "Magi%27s_Cloak",
+    "Berserker%27s_Shield", "Erosion", "Contagion", "Stampede", "Prophetic_Cloak",
+    "Gladiator%27s_Shield", "Pharaoh%27s_Curse", "Ancile", "Shroud_of_Vengeance",
+    "Spirit_Robe", "Leviathan%27s_Hide", "Shogun%27s_Ofuda", "Umbral_Link",
+    "Oni_Hunter%27s_Garb", "Doublet_of_Binding", "Hide_of_the_Nemean_Lion",
+    "Mystical_Mail", "Glorious_Pridwen", "Regrowth_Striders", "Stone_of_Binding",
+    "Stygian_Anchor", "WyrmskinHide", "Ragnarok%27s_Wake", "Freya%27s_Tears",
+    "Mantle_Of_Discord", "Heartwood_Charm", "Draconic_Scale", "Circe%27s_Hexstone",
+    "Xibalban_Effigy", "Resolute_Mantle", "Radiant_Bulwark", "Dwarven_Plate",
+    "Hussar%27s_Wings"
+  ],
+  "Tier_III_Hybrid": [
+    "Rod_Of_Asclepius", "Scepter_of_Dominion", "Lifebinder", "Shield_Splitter",
+    "Golden_Blade", "Eye_of_the_Storm", "Helm_of_Radiance", "Gem_of_Isolation",
+    "Brawler%E2%80%99s_Beat_Stick", "Runeforged_Hammer", "Eye_of_Erebus",
+    "Void_Shield", "Sanguine_Lash", "Shifter%27s_Shield", "Void_Stone",
+    "Triton%27s_Conch", "Helm_of_Darkness", "Sphere_of_Negation", "Wish-Granting_Pearl"
+  ],
+  "God_Specific": [
+    "Genie%27s_Lamp", "Masterwork_Mod", "Thermal_Mod", "Seismic_Mod",
+    "Surplus_Mod", "Shrapnel_Mod", "Resonator_Mod", "Dual_Mod",
+    "Efficiency_Mod", "Training_Grounds", "Alternator_Mod", "Baron%27s_Brew"
+  ]
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smite 2 Build Calculator</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>⚔ SMITE 2 BUILD CALCULATOR</h1>
+  </header>
+
+  <main class="panels">
+
+    <!-- ── Panel 1: Base Stats ── -->
+    <section class="panel" id="panel-base">
+      <h2>BASE STATS</h2>
+      <p class="panel-note">Enter your god's base stats manually</p>
+
+      <div class="stat-inputs">
+        <label>HP
+          <input type="text" inputmode="decimal" id="base-hp" value="1800" />
+        </label>
+        <label>Physical Protection
+          <input type="text" inputmode="decimal" id="base-phys-prot" value="35" />
+        </label>
+        <label>Magical Protection
+          <input type="text" inputmode="decimal" id="base-mag-prot" value="35" />
+        </label>
+        <label>Plating % <span class="cap-note">(cap 35%)</span>
+          <input type="text" inputmode="decimal" id="base-plating" value="0" />
+        </label>
+        <label>Dampening % <span class="cap-note">(cap 35%)</span>
+          <input type="text" inputmode="decimal" id="base-dampening" value="0" />
+        </label>
+        <label>Damage Mitigation %
+          <input type="text" inputmode="decimal" id="base-dmg-mit" value="0" />
+        </label>
+      </div>
+
+      <div class="divider"></div>
+      <h3>TOTAL WITH ITEMS</h3>
+      <div id="total-stats" class="total-stats">
+        <!-- populated by JS -->
+      </div>
+    </section>
+
+    <!-- ── Panel 2: Item Build ── -->
+    <section class="panel" id="panel-build">
+      <h2>ITEM BUILD</h2>
+
+      <div id="build-slots" class="build-slots">
+        <!-- up to 6 items shown here -->
+        <div class="build-empty">No items selected</div>
+      </div>
+
+      <div class="divider"></div>
+      <h3>ADD ITEMS</h3>
+
+      <input type="text" id="item-search" placeholder="Search items..." autocomplete="off" />
+
+      <div class="category-filters" id="category-filters">
+        <button class="filter-btn active" data-cat="All">All</button>
+        <button class="filter-btn" data-cat="Offensive">Offensive</button>
+        <button class="filter-btn" data-cat="Defensive">Defensive</button>
+        <button class="filter-btn" data-cat="Hybrid">Hybrid</button>
+        <button class="filter-btn" data-cat="Starter">Starter</button>
+        <button class="filter-btn" data-cat="Other">Other</button>
+      </div>
+
+      <div id="item-list" class="item-list">
+        <div class="loading">Loading items…</div>
+      </div>
+    </section>
+
+    <!-- ── Panel 3: Results ── -->
+    <section class="panel" id="panel-results">
+      <h2>EFFECTIVE HP</h2>
+
+      <div class="ehp-grid">
+        <div class="ehp-card" id="ehp-aa">
+          <div class="ehp-label">vs Phys Basic Attacks</div>
+          <div class="ehp-value">—</div>
+          <div class="ehp-sub">Phys prot + Plating + DmgMit</div>
+        </div>
+        <div class="ehp-card" id="ehp-mag-aa">
+          <div class="ehp-label">vs Mag Basic Attacks</div>
+          <div class="ehp-value">—</div>
+          <div class="ehp-sub">Mag prot + Plating + DmgMit</div>
+        </div>
+        <div class="ehp-card" id="ehp-phys-ab">
+          <div class="ehp-label">vs Phys Abilities</div>
+          <div class="ehp-value">—</div>
+          <div class="ehp-sub">Phys prot + Dampening + DmgMit</div>
+        </div>
+        <div class="ehp-card" id="ehp-mag-ab">
+          <div class="ehp-label">vs Mag Abilities</div>
+          <div class="ehp-value">—</div>
+          <div class="ehp-sub">Mag prot + Dampening + DmgMit</div>
+        </div>
+        <div class="ehp-card ehp-card-wide" id="ehp-true">
+          <div class="ehp-label">vs True Damage</div>
+          <div class="ehp-value">—</div>
+          <div class="ehp-sub">HP + DmgMit only</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <h3>PER-ITEM EHP GAIN</h3>
+      <div id="item-deltas" class="item-deltas">
+        <div class="delta-empty">Add items to see contributions</div>
+      </div>
+
+      <div class="divider"></div>
+      <h3>MECHANICS NOTE</h3>
+      <div class="mechanics-note">
+        <p><strong>Plating</strong> reduces basic attack dmg (cap 35%)</p>
+        <p><strong>Dampening</strong> reduces ability dmg (cap 35%)</p>
+        <p><strong>Mitigation</strong> reduces all dmg incl. true dmg — stacks additively with plating/dampening, does NOT count toward the 35% cap</p>
+        <p><strong>Yellow numbers</strong> (Bluestone, Gladiator's Shield, Soulreaver procs) bypass Plating &amp; Dampening</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Item tooltip -->
+  <div id="tooltip" class="tooltip hidden"></div>
+
+  <script src="/static/calculator.js"></script>
+</body>
+</html>
