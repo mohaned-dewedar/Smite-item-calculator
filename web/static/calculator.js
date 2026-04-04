@@ -344,6 +344,8 @@ function renderBuildSlots() {
       recalculate();
     });
   });
+
+  renderBuildCost();
 }
 
 // ── Calculation ────────────────────────────────────────────────────────────
@@ -474,6 +476,49 @@ function mergeStats(base, items) {
   };
 }
 
+function renderBuildCost() {
+  const costOf = arr => arr.reduce((sum, item) => sum + (item.total_cost || item.cost || 0), 0);
+  const a = costOf(buildA);
+  const b = costOf(buildB);
+  const fmt = n => n.toLocaleString() + "g";
+  document.getElementById("build-cost").innerHTML =
+    `<span class="cost-badge${activeBuild === "A" ? " active" : ""}">A: ${fmt(a)}</span>` +
+    `<span class="cost-badge${activeBuild === "B" ? " active" : ""}">B: ${fmt(b)}</span>`;
+}
+
+function renderStatComparison(base, itemsA, itemsB) {
+  const container = document.getElementById("stat-compare");
+  const valA = s => (base[s.key] || 0) + (itemsA[s.itemKey] || 0);
+  const valB = s => (base[s.key] || 0) + (itemsB[s.itemKey] || 0);
+
+  const header = `<div class="compare-header">
+    <span class="compare-label"></span>
+    <span class="compare-cell col-a-hdr">A</span>
+    <span class="compare-cell col-b-hdr">B</span>
+    <span class="compare-cell delta-hdr">Δ B−A</span>
+  </div>`;
+
+  const rows = DISPLAY_STATS
+    .filter(s => valA(s) !== 0 || valB(s) !== 0)
+    .map(s => {
+      const a = valA(s);
+      const b = valB(s);
+      const d = b - a;
+      const dStr = d === 0 ? "—" : (d > 0 ? "+" : "") + fmt1(d);
+      const dCls = d === 0 ? "delta-zero" : d > 0 ? "delta-pos" : "delta-neg";
+      return `<div class="compare-row">
+        <span class="compare-label">${s.label}</span>
+        <span class="compare-cell col-a">${fmt1(a)}</span>
+        <span class="compare-cell col-b">${fmt1(b)}</span>
+        <span class="compare-cell ${dCls}">${dStr}</span>
+      </div>`;
+    });
+
+  container.innerHTML = rows.length
+    ? header + rows.join("")
+    : '<div class="delta-empty">Add items to see stats</div>';
+}
+
 function recalculate() {
   const base    = getBaseStats();
   const itemsA  = sumItemStats(buildA, passiveTogglesA);
@@ -481,10 +526,14 @@ function recalculate() {
   const totalA  = mergeStats(base, itemsA);
   const totalB  = mergeStats(base, itemsB);
 
+  renderBuildCost();
   renderCompareTable(calcAllEHP(totalA), calcAllEHP(totalB));
+  renderStatComparison(base, itemsA, itemsB);
   const activeItems = activeBuild === "A" ? itemsA : itemsB;
   renderTotalStats(base, activeItems);
-  renderItemDeltas(base, activeItems, activeBuild === "A" ? buildA : buildB);
+  const activeBuildArr    = activeBuild === "A" ? buildA : buildB;
+  const activeToggleSet   = activeBuild === "A" ? passiveTogglesA : passiveTogglesB;
+  renderItemDeltas(base, activeItems, activeBuildArr, activeToggleSet);
 }
 
 // ── Rendering Results ──────────────────────────────────────────────────────
@@ -571,7 +620,7 @@ function renderTotalStats(base, items) {
   container.innerHTML = rows.length ? rows.join("") : '<div class="build-empty">—</div>';
 }
 
-function renderItemDeltas(base, itemTotals, buildArr) {
+function renderItemDeltas(base, itemTotals, buildArr, toggleSet = new Set()) {
   const container = document.getElementById("item-deltas");
   if (!buildArr || buildArr.length === 0) {
     container.innerHTML = '<div class="delta-empty">Add items to see contributions</div>';
@@ -581,16 +630,10 @@ function renderItemDeltas(base, itemTotals, buildArr) {
   const totalWithAll = mergeStats(base, itemTotals);
 
   const rows = buildArr.map(item => {
-    // Stats without this item
-    const withoutItemStats = {
-      hp:        itemTotals.hp        - (item.stats.health              || 0),
-      physProt:  itemTotals.physProt  - (item.stats.physical_protection || 0),
-      magProt:   itemTotals.magProt   - (item.stats.magical_protection  || 0),
-      plating:   itemTotals.plating   - (item.stats.plating             || 0),
-      dampening: itemTotals.dampening - (item.stats.dampening           || 0),
-      dmgMit:    itemTotals.dmgMit    - (item.stats.damage_mitigation   || 0),
-    };
-    const without = mergeStats(base, withoutItemStats);
+    // Recompute stats for the build without this item — correctly handles
+    // base stats, auto-applied adaptive passives, and toggled passive stats.
+    const withoutBuild = buildArr.filter(i => i.id !== item.id);
+    const without = mergeStats(base, sumItemStats(withoutBuild, toggleSet));
     const ehpWith    = calcAllEHP(totalWithAll);
     const ehpWithout = calcAllEHP(without);
 
