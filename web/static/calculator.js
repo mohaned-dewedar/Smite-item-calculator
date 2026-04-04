@@ -311,12 +311,13 @@ function renderBuildSlots() {
     const icon       = item.icon_url
       ? `<img class="item-icon item-icon-sm" src="${escHtml(item.icon_url)}" alt="" onerror="this.style.display='none'">`
       : `<span class="item-icon-placeholder item-icon-sm"></span>`;
-    const hasPassive = item.passive_stats && item.passive_stats.length > 0;
-    const toggled    = toggles.has(item.id);
-    const conditions = hasPassive
-      ? [...new Set(item.passive_stats.map(p => p.condition))].join(", ")
+    const conditionalPassives = item.passive_stats ? item.passive_stats.filter(p => !isAutoApply(p)) : [];
+    const hasTogglable = conditionalPassives.length > 0;
+    const toggled      = toggles.has(item.id);
+    const conditions   = hasTogglable
+      ? [...new Set(conditionalPassives.map(p => p.condition))].join(", ")
       : "";
-    const passiveBtn = hasPassive
+    const passiveBtn = hasTogglable
       ? `<button class="passive-toggle ${toggled ? "active" : ""}" data-id="${item.id}"
                  title="${toggled ? "Passive ON" : "Passive OFF"}: ${escHtml(conditions)}">&#9889;</button>`
       : "";
@@ -358,6 +359,12 @@ function getBaseStats() {
   };
 }
 
+// Adaptive base stats (condition="adaptive") are always-on — not a toggle passive.
+// "always" and "always (aura)" rows are also auto-applied.
+function isAutoApply(ps) {
+  return ps.condition === "adaptive" || ps.condition === "always" || ps.condition === "always (aura)";
+}
+
 function sumItemStats(buildArr, toggleSet = new Set()) {
   const s = { hp: 0, physProt: 0, magProt: 0, plating: 0, dampening: 0, dmgMit: 0,
               mana: 0, health_regen: 0, mana_regen: 0, cooldown_reduction: 0,
@@ -392,17 +399,33 @@ function sumItemStats(buildArr, toggleSet = new Set()) {
     s.basic_attack_power   += st.basic_attack_power   || 0;
   }
 
-  // Pass 2: apply toggled passive stats
-  // Snapshot base totals so pct_of_item_stat uses pre-passive values
+  // Snapshot base totals (items only, pre-passive) for pct_of_item_stat calculations
   const base = { ...s };
+
+  // Pass 1.5: auto-apply adaptive and always-on stats (no toggle required)
   for (const item of (buildArr || getActiveBuild())) {
-    if (!toggleSet.has(item.id) || !item.passive_stats) continue;
-    // For adaptive items: determine dominant stat from base totals
+    if (!item.passive_stats) continue;
     const strDominant = base.strength >= base.intelligence;
     for (const ps of item.passive_stats) {
+      if (!isAutoApply(ps)) continue;
       const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
       if (jsKey === undefined) continue;
-      // Skip non-dominant branch for adaptive stats
+      if (ps.is_adaptive) {
+        if (ps.stat_key === "strength"     && !strDominant) continue;
+        if (ps.stat_key === "intelligence" && strDominant)  continue;
+      }
+      s[jsKey] = (s[jsKey] || 0) + ps.value;
+    }
+  }
+
+  // Pass 2: apply toggled conditional passive stats
+  for (const item of (buildArr || getActiveBuild())) {
+    if (!toggleSet.has(item.id) || !item.passive_stats) continue;
+    const strDominant = base.strength >= base.intelligence;
+    for (const ps of item.passive_stats) {
+      if (isAutoApply(ps)) continue; // already applied above
+      const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
+      if (jsKey === undefined) continue;
       if (ps.is_adaptive) {
         if (ps.stat_key === "strength"     && !strDominant) continue;
         if (ps.stat_key === "intelligence" && strDominant)  continue;
