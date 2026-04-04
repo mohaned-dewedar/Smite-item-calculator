@@ -16,7 +16,22 @@
     <!-- ── Panel 1: Base Stats ── -->
     <section class="panel" id="panel-base">
       <h2>BASE STATS</h2>
-      <p class="panel-note">Enter your god's base stats manually</p>
+
+      <!-- God selector -->
+      <div class="god-selector">
+        <input type="text" id="god-search" placeholder="Search god..." autocomplete="off" />
+        <div id="god-dropdown" class="god-dropdown hidden"></div>
+      </div>
+      <div id="god-selected" class="god-selected hidden">
+        <span id="god-selected-name"></span>
+        <button id="clear-god" class="clear-btn" title="Clear god">✕</button>
+      </div>
+      <label class="level-label" id="level-label">
+        Level <span id="level-display">1</span>
+        <input type="range" id="god-level" min="1" max="20" value="1" />
+      </label>
+
+      <div class="divider"></div>
 
       <div class="stat-inputs">
         <label>HP
@@ -48,7 +63,10 @@
 
     <!-- ── Panel 2: Item Build ── -->
     <section class="panel" id="panel-build">
-      <h2>ITEM BUILD</h2>
+      <div class="build-tabs">
+        <button class="build-tab active" data-build="A">BUILD A</button>
+        <button class="build-tab" data-build="B">BUILD B</button>
+      </div>
 
       <div id="build-slots" class="build-slots">
         <!-- up to 6 items shown here -->
@@ -78,32 +96,8 @@
     <section class="panel" id="panel-results">
       <h2>EFFECTIVE HP</h2>
 
-      <div class="ehp-grid">
-        <div class="ehp-card" id="ehp-aa">
-          <div class="ehp-label">vs Phys Basic Attacks</div>
-          <div class="ehp-value">—</div>
-          <div class="ehp-sub">Phys prot + Plating + DmgMit</div>
-        </div>
-        <div class="ehp-card" id="ehp-mag-aa">
-          <div class="ehp-label">vs Mag Basic Attacks</div>
-          <div class="ehp-value">—</div>
-          <div class="ehp-sub">Mag prot + Plating + DmgMit</div>
-        </div>
-        <div class="ehp-card" id="ehp-phys-ab">
-          <div class="ehp-label">vs Phys Abilities</div>
-          <div class="ehp-value">—</div>
-          <div class="ehp-sub">Phys prot + Dampening + DmgMit</div>
-        </div>
-        <div class="ehp-card" id="ehp-mag-ab">
-          <div class="ehp-label">vs Mag Abilities</div>
-          <div class="ehp-value">—</div>
-          <div class="ehp-sub">Mag prot + Dampening + DmgMit</div>
-        </div>
-        <div class="ehp-card ehp-card-wide" id="ehp-true">
-          <div class="ehp-label">vs True Damage</div>
-          <div class="ehp-value">—</div>
-          <div class="ehp-sub">HP + DmgMit only</div>
-        </div>
+      <div class="compare-table" id="compare-table">
+        <!-- populated by JS -->
       </div>
 
       <div class="divider"></div>

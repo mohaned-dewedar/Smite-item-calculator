@@ -14,14 +14,21 @@
 // ── State ──────────────────────────────────────────────────────────────────
 
 let allItems = [];     // full item list from API
-let build = [];        // selected items (up to 6), each is an item object
+let allGods  = [];     // full god list from API
+let selectedGod = null;
+let buildA = [];       // Build A items (up to 6)
+let buildB = [];       // Build B items (up to 6)
+let activeBuild = "A"; // "A" | "B"
 let activeCategory = "All";
+
+function getActiveBuild() { return activeBuild === "A" ? buildA : buildB; }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 
 async function init() {
-  const res = await fetch("/api/items");
-  allItems = await res.json();
+  const [itemsRes, godsRes] = await Promise.all([fetch("/api/items"), fetch("/api/gods")]);
+  allItems = await itemsRes.json();
+  allGods  = await godsRes.json();
   renderItemList();
   bindEvents();
   recalculate();
@@ -58,6 +65,50 @@ function bindEvents() {
     });
   });
 
+  // God search
+  const godSearch = document.getElementById("god-search");
+  const godDropdown = document.getElementById("god-dropdown");
+
+  godSearch.addEventListener("input", () => {
+    const q = godSearch.value.trim().toLowerCase();
+    if (!q) { godDropdown.classList.add("hidden"); return; }
+    const matches = allGods.filter(g => g.name.toLowerCase().includes(q));
+    if (matches.length === 0) { godDropdown.classList.add("hidden"); return; }
+    godDropdown.innerHTML = matches.map(g => {
+      const icon = g.icon_url
+        ? `<img class="god-icon-sm" src="${escHtml(g.icon_url)}" alt="" onerror="this.style.display='none'">`
+        : `<span class="god-icon-sm" style="background:var(--bg3);border-radius:4px;display:inline-block;flex-shrink:0"></span>`;
+      return `<div class="god-option" data-id="${g.id}">${icon}${escHtml(g.name)}${g.role ? ` <span class="god-role">${escHtml(g.role)}</span>` : ""}</div>`;
+    }).join("");
+    godDropdown.classList.remove("hidden");
+    godDropdown.querySelectorAll(".god-option").forEach(el => {
+      el.addEventListener("click", () => selectGod(parseInt(el.dataset.id)));
+    });
+  });
+
+  godSearch.addEventListener("blur", () => {
+    setTimeout(() => godDropdown.classList.add("hidden"), 150);
+  });
+
+  document.getElementById("god-level").addEventListener("input", () => {
+    document.getElementById("level-display").textContent =
+      document.getElementById("god-level").value;
+    applyGodStats();
+  });
+
+  document.getElementById("clear-god").addEventListener("click", clearGod);
+
+  // Build tabs
+  document.querySelectorAll(".build-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeBuild = btn.dataset.build;
+      document.querySelectorAll(".build-tab").forEach(b => b.classList.toggle("active", b === btn));
+      renderBuildSlots();
+      renderItemList();
+      recalculate();
+    });
+  });
+
   // Category filter buttons
   document.getElementById("category-filters").addEventListener("click", e => {
     const btn = e.target.closest(".filter-btn");
@@ -73,6 +124,64 @@ function bindEvents() {
 
   // Tooltip hide on scroll
   document.getElementById("item-list").addEventListener("scroll", hideTooltip);
+}
+
+// ── God Selector ───────────────────────────────────────────────────────────
+
+function selectGod(id) {
+  selectedGod = allGods.find(g => g.id === id) || null;
+  const nameEl = document.getElementById("god-selected-name");
+  const selectedEl = document.getElementById("god-selected");
+  const searchEl = document.getElementById("god-search");
+  if (selectedGod) {
+    const icon = selectedGod.icon_url
+      ? `<img class="god-icon-sm" src="${escHtml(selectedGod.icon_url)}" alt="" onerror="this.style.display='none'">`
+      : "";
+    nameEl.innerHTML = icon + escHtml(selectedGod.name + (selectedGod.role ? ` · ${selectedGod.role}` : ""));
+    selectedEl.classList.remove("hidden");
+    searchEl.value = "";
+    searchEl.classList.add("hidden");
+  }
+  document.getElementById("god-dropdown").classList.add("hidden");
+  applyGodStats();
+}
+
+function clearGod() {
+  selectedGod = null;
+  document.getElementById("god-selected").classList.add("hidden");
+  const searchEl = document.getElementById("god-search");
+  searchEl.classList.remove("hidden");
+  searchEl.value = "";
+  document.getElementById("god-level").value = "1";
+  document.getElementById("level-display").textContent = "1";
+  // Reset to defaults
+  document.getElementById("base-hp").value = "1800";
+  document.getElementById("base-phys-prot").value = "35";
+  document.getElementById("base-mag-prot").value = "35";
+  recalculate();
+}
+
+function godStatAt(base, perLvl, level) {
+  return (base || 0) + (perLvl || 0) * (level - 1);
+}
+
+function applyGodStats() {
+  if (!selectedGod) return;
+  const level = parseInt(document.getElementById("god-level").value);
+  const s = selectedGod.stats;
+  if (s.hp_base != null) {
+    document.getElementById("base-hp").value =
+      Math.round(godStatAt(s.hp_base, s.hp_per_lvl, level));
+  }
+  if (s.phys_prot_base != null) {
+    document.getElementById("base-phys-prot").value =
+      fmt1(godStatAt(s.phys_prot_base, s.phys_prot_per_lvl, level));
+  }
+  if (s.mag_prot_base != null) {
+    document.getElementById("base-mag-prot").value =
+      fmt1(godStatAt(s.mag_prot_base, s.mag_prot_per_lvl, level));
+  }
+  recalculate();
 }
 
 // ── Item List Rendering ────────────────────────────────────────────────────
@@ -91,7 +200,7 @@ function matchesCategory(item) {
 function renderItemList() {
   const query = document.getElementById("item-search").value.trim().toLowerCase();
   const list  = document.getElementById("item-list");
-  const inBuildIds = new Set(build.map(i => i.id));
+  const inBuildIds = new Set(getActiveBuild().map(i => i.id));
 
   const filtered = allItems.filter(item => {
     if (!matchesCategory(item)) return false;
@@ -109,10 +218,14 @@ function renderItemList() {
     const tier    = item.tier ? `T${item.tier}` : "—";
     const tierCls = item.tier ? `t${item.tier}` : "";
     const chips   = buildStatChips(item.stats);
+    const icon    = item.icon_url
+      ? `<img class="item-icon" src="${escHtml(item.icon_url)}" alt="" onerror="this.style.display='none'">`
+      : `<span class="item-icon-placeholder"></span>`;
 
     return `<div class="item-entry ${inBuild ? "in-build" : ""}"
                  data-id="${item.id}"
                  data-name="${escHtml(item.name)}">
+      ${icon}
       <span class="item-tier ${tierCls}">${tier}</span>
       <span class="item-name">${escHtml(item.name)}</span>
       <div class="item-stat-chips">${chips}</div>
@@ -138,17 +251,19 @@ function buildStatChips(stats) {
 // ── Build Management ───────────────────────────────────────────────────────
 
 function addItem(id) {
-  if (build.length >= 6) return;
+  const current = getActiveBuild();
+  if (current.length >= 6) return;
   const item = allItems.find(i => i.id === id);
-  if (!item || build.find(i => i.id === id)) return;
-  build.push(item);
+  if (!item || current.find(i => i.id === id)) return;
+  current.push(item);
   renderBuildSlots();
   renderItemList();
   recalculate();
 }
 
 function removeItem(id) {
-  build = build.filter(i => i.id !== id);
+  if (activeBuild === "A") buildA = buildA.filter(i => i.id !== id);
+  else                     buildB = buildB.filter(i => i.id !== id);
   renderBuildSlots();
   renderItemList();
   recalculate();
@@ -156,15 +271,20 @@ function removeItem(id) {
 
 function renderBuildSlots() {
   const container = document.getElementById("build-slots");
-  if (build.length === 0) {
+  const current = getActiveBuild();
+  if (current.length === 0) {
     container.innerHTML = '<div class="build-empty">No items selected</div>';
     return;
   }
-  container.innerHTML = build.map(item => {
+  container.innerHTML = current.map(item => {
     const tier    = item.tier ? `T${item.tier}` : "—";
     const tierCls = item.tier ? `t${item.tier}` : "";
     const cost    = item.total_cost ? `${item.total_cost}g` : item.cost ? `${item.cost}g` : "";
+    const icon    = item.icon_url
+      ? `<img class="item-icon item-icon-sm" src="${escHtml(item.icon_url)}" alt="" onerror="this.style.display='none'">`
+      : `<span class="item-icon-placeholder item-icon-sm"></span>`;
     return `<div class="build-item">
+      ${icon}
       <span class="item-tier ${tierCls}">${tier}</span>
       <span class="item-name">${escHtml(item.name)}</span>
       <span class="item-cost">${cost}</span>
@@ -190,28 +310,36 @@ function getBaseStats() {
   };
 }
 
-function sumItemStats() {
+function sumItemStats(buildArr) {
   const s = { hp: 0, physProt: 0, magProt: 0, plating: 0, dampening: 0, dmgMit: 0,
               mana: 0, health_regen: 0, mana_regen: 0, cooldown_reduction: 0,
               attack_speed: 0, movement_speed: 0, lifesteal: 0,
-              strength: 0, intelligence: 0 };
-  for (const item of build) {
+              strength: 0, intelligence: 0,
+              physical_penetration: 0, magical_penetration: 0, penetration: 0,
+              critical_chance: 0, tenacity: 0, basic_attack_power: 0 };
+  for (const item of (buildArr || getActiveBuild())) {
     const st = item.stats;
-    s.hp               += st.health               || 0;
-    s.physProt         += st.physical_protection  || 0;
-    s.magProt          += st.magical_protection   || 0;
-    s.plating          += st.plating              || 0;
-    s.dampening        += st.dampening            || 0;
-    s.dmgMit           += st.damage_mitigation    || 0;
-    s.mana             += st.mana                 || 0;
-    s.health_regen     += st.health_regen         || 0;
-    s.mana_regen       += st.mana_regen           || 0;
-    s.cooldown_reduction += st.cooldown_reduction || 0;
-    s.attack_speed     += st.attack_speed         || 0;
-    s.movement_speed   += st.movement_speed       || 0;
-    s.lifesteal        += st.lifesteal            || 0;
-    s.strength         += st.strength             || 0;
-    s.intelligence     += st.intelligence         || 0;
+    s.hp                  += st.health               || 0;
+    s.physProt            += st.physical_protection  || 0;
+    s.magProt             += st.magical_protection   || 0;
+    s.plating             += st.plating              || 0;
+    s.dampening           += st.dampening            || 0;
+    s.dmgMit              += st.damage_mitigation    || 0;
+    s.mana                += st.mana                 || 0;
+    s.health_regen        += st.health_regen         || 0;
+    s.mana_regen          += st.mana_regen           || 0;
+    s.cooldown_reduction  += st.cooldown_reduction   || 0;
+    s.attack_speed        += st.attack_speed         || 0;
+    s.movement_speed      += st.movement_speed       || 0;
+    s.lifesteal           += st.lifesteal            || 0;
+    s.strength            += st.strength             || 0;
+    s.intelligence        += st.intelligence         || 0;
+    s.physical_penetration += st.physical_penetration || 0;
+    s.magical_penetration  += st.magical_penetration  || 0;
+    s.penetration          += st.penetration          || 0;
+    s.critical_chance      += st.critical_chance      || 0;
+    s.tenacity             += st.tenacity             || 0;
+    s.basic_attack_power   += st.basic_attack_power   || 0;
   }
   return s;
 }
@@ -251,40 +379,78 @@ function mergeStats(base, items) {
 }
 
 function recalculate() {
-  const base      = getBaseStats();
-  const itemTotals = sumItemStats();
-  const total     = mergeStats(base, itemTotals);
-  const ehp       = calcAllEHP(total);
+  const base    = getBaseStats();
+  const itemsA  = sumItemStats(buildA);
+  const itemsB  = sumItemStats(buildB);
+  const totalA  = mergeStats(base, itemsA);
+  const totalB  = mergeStats(base, itemsB);
 
-  renderEHP(ehp);
-  renderTotalStats(base, itemTotals);
-  renderItemDeltas(base, itemTotals);
+  renderCompareTable(calcAllEHP(totalA), calcAllEHP(totalB));
+  const activeItems = activeBuild === "A" ? itemsA : itemsB;
+  renderTotalStats(base, activeItems);
+  renderItemDeltas(base, activeItems, activeBuild === "A" ? buildA : buildB);
 }
 
 // ── Rendering Results ──────────────────────────────────────────────────────
 
-function renderEHP(ehp) {
+const EHP_ROWS = [
+  { label: "vs Phys Basic Attacks", key: "vsAA",     sub: "Phys prot + Plating + DmgMit" },
+  { label: "vs Mag Basic Attacks",  key: "vsMagAA",  sub: "Mag prot + Plating + DmgMit" },
+  { label: "vs Phys Abilities",     key: "vsPhysAb", sub: "Phys prot + Dampening + DmgMit" },
+  { label: "vs Mag Abilities",      key: "vsMagAb",  sub: "Mag prot + Dampening + DmgMit" },
+  { label: "vs True Damage",        key: "vsTrue",   sub: "HP + DmgMit only" },
+];
+
+function renderCompareTable(ehpA, ehpB) {
   const fmt = v => v === Infinity ? "∞" : v.toLocaleString();
-  document.querySelector("#ehp-aa .ehp-value").textContent      = fmt(ehp.vsAA);
-  document.querySelector("#ehp-mag-aa .ehp-value").textContent  = fmt(ehp.vsMagAA);
-  document.querySelector("#ehp-phys-ab .ehp-value").textContent = fmt(ehp.vsPhysAb);
-  document.querySelector("#ehp-mag-ab .ehp-value").textContent  = fmt(ehp.vsMagAb);
-  document.querySelector("#ehp-true .ehp-value").textContent    = fmt(ehp.vsTrue);
+  const container = document.getElementById("compare-table");
+
+  const header = `<div class="compare-header">
+    <span class="compare-label"></span>
+    <span class="compare-cell col-a-hdr">A</span>
+    <span class="compare-cell col-b-hdr">B</span>
+    <span class="compare-cell delta-hdr">Δ</span>
+  </div>`;
+
+  const rows = EHP_ROWS.map(r => {
+    const a = ehpA[r.key];
+    const b = ehpB[r.key];
+    const d = (a === Infinity || b === Infinity) ? null : b - a;
+    const dStr = d === null ? "∞" : d === 0 ? "—" : (d > 0 ? "+" : "") + d.toLocaleString();
+    const dCls = d === null || d === 0 ? "delta-zero" : d > 0 ? "delta-pos" : "delta-neg";
+    return `<div class="compare-row">
+      <span class="compare-label">${r.label}<br><span class="compare-sub">${r.sub}</span></span>
+      <span class="compare-cell col-a">${fmt(a)}</span>
+      <span class="compare-cell col-b">${fmt(b)}</span>
+      <span class="compare-cell ${dCls}">${dStr}</span>
+    </div>`;
+  }).join("");
+
+  container.innerHTML = header + rows;
 }
 
 const DISPLAY_STATS = [
-  { key: "hp",         label: "HP",         itemKey: "hp" },
-  { key: "physProt",   label: "Phys Prot",  itemKey: "physProt" },
-  { key: "magProt",    label: "Mag Prot",   itemKey: "magProt" },
-  { key: "plating",    label: "Plating %",  itemKey: "plating" },
-  { key: "dampening",  label: "Dampening %",itemKey: "dampening" },
-  { key: "dmgMit",     label: "Dmg Mit %",  itemKey: "dmgMit" },
-  { key: "cooldown_reduction", label: "CDR",  itemKey: "cooldown_reduction" },
-  { key: "mana",       label: "Mana",       itemKey: "mana" },
-  { key: "attack_speed", label: "Atk Speed", itemKey: "attack_speed" },
-  { key: "movement_speed", label: "Move Spd", itemKey: "movement_speed" },
-  { key: "strength",   label: "Strength",   itemKey: "strength" },
-  { key: "intelligence", label: "Intelligence", itemKey: "intelligence" },
+  { key: "hp",                  label: "HP",           itemKey: "hp" },
+  { key: "physProt",            label: "Phys Prot",    itemKey: "physProt" },
+  { key: "magProt",             label: "Mag Prot",     itemKey: "magProt" },
+  { key: "strength",            label: "Strength",     itemKey: "strength" },
+  { key: "intelligence",        label: "Intelligence", itemKey: "intelligence" },
+  { key: "plating",             label: "Plating %",    itemKey: "plating" },
+  { key: "dampening",           label: "Dampening %",  itemKey: "dampening" },
+  { key: "dmgMit",              label: "Dmg Mit %",    itemKey: "dmgMit" },
+  { key: "cooldown_reduction",  label: "CDR",          itemKey: "cooldown_reduction" },
+  { key: "mana",                label: "Mana",         itemKey: "mana" },
+  { key: "health_regen",        label: "HP Regen",     itemKey: "health_regen" },
+  { key: "mana_regen",          label: "Mana Regen",   itemKey: "mana_regen" },
+  { key: "attack_speed",        label: "Atk Speed",    itemKey: "attack_speed" },
+  { key: "movement_speed",      label: "Move Spd",     itemKey: "movement_speed" },
+  { key: "lifesteal",           label: "Lifesteal",    itemKey: "lifesteal" },
+  { key: "physical_penetration",label: "Phys Pen",     itemKey: "physical_penetration" },
+  { key: "magical_penetration", label: "Mag Pen",      itemKey: "magical_penetration" },
+  { key: "penetration",         label: "Penetration",  itemKey: "penetration" },
+  { key: "critical_chance",     label: "Crit %",       itemKey: "critical_chance" },
+  { key: "tenacity",            label: "Tenacity",     itemKey: "tenacity" },
+  { key: "basic_attack_power",  label: "BAP",          itemKey: "basic_attack_power" },
 ];
 
 function renderTotalStats(base, items) {
@@ -309,16 +475,16 @@ function renderTotalStats(base, items) {
   container.innerHTML = rows.length ? rows.join("") : '<div class="build-empty">—</div>';
 }
 
-function renderItemDeltas(base, itemTotals) {
+function renderItemDeltas(base, itemTotals, buildArr) {
   const container = document.getElementById("item-deltas");
-  if (build.length === 0) {
+  if (!buildArr || buildArr.length === 0) {
     container.innerHTML = '<div class="delta-empty">Add items to see contributions</div>';
     return;
   }
 
   const totalWithAll = mergeStats(base, itemTotals);
 
-  const rows = build.map(item => {
+  const rows = buildArr.map(item => {
     // Stats without this item
     const withoutItemStats = {
       hp:        itemTotals.hp        - (item.stats.health              || 0),
@@ -384,8 +550,11 @@ function showTooltip(e, id) {
     : "";
 
   const tip = document.getElementById("tooltip");
+  const ttIcon = item.icon_url
+    ? `<img class="tt-icon" src="${escHtml(item.icon_url)}" alt="" onerror="this.style.display='none'">`
+    : "";
   tip.innerHTML = `
-    <div class="tt-name">${escHtml(item.name)}</div>
+    <div class="tt-header">${ttIcon}<div class="tt-name">${escHtml(item.name)}</div></div>
     <div class="tt-stats">${statLines}</div>
     ${passive}${active}
   `;

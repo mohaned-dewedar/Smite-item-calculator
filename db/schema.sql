@@ -48,3 +48,24 @@ CREATE TABLE IF NOT EXISTS item_components (
     parent_item_id      INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     component_item_name TEXT    NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS gods (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    wiki_slug   TEXT NOT NULL,
+    pantheon    TEXT,
+    role        TEXT,
+    icon_url    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS god_stats (
+    god_id                  INTEGER PRIMARY KEY REFERENCES gods(id) ON DELETE CASCADE,
+    hp_base                 REAL,  hp_per_lvl             REAL,
+    mp_base                 REAL,  mp_per_lvl             REAL,
+    hp_regen_base           REAL,  hp_regen_per_lvl       REAL,
+    mp_regen_base           REAL,  mp_regen_per_lvl       REAL,
+    phys_prot_base          REAL,  phys_prot_per_lvl      REAL,
+    mag_prot_base           REAL,  mag_prot_per_lvl       REAL,
+    attack_speed_base       REAL,  attack_speed_per_lvl   REAL,
+    move_speed_base         REAL,  move_speed_per_lvl     REAL
+);
