@@ -627,6 +627,7 @@ header h1 {
 }
 
 .tooltip.hidden { display: none; }
+.hidden { display: none; }
 
 .tooltip .tt-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--accent); }
 .tooltip .tt-stats { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
