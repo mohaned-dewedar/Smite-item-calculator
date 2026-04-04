@@ -11,6 +11,7 @@ Then open http://localhost:5000
 import os
 import sqlite3
 import urllib.request
+from collections import defaultdict
 from flask import Flask, jsonify, render_template, request, Response
 
 ICONS_DIR      = os.path.join(os.path.dirname(__file__), "static", "icons")
@@ -51,7 +52,21 @@ def items():
         LEFT JOIN item_passives p ON i.id = p.item_id
         ORDER BY i.tier DESC NULLS LAST, i.name
     """).fetchall()
+
+    passive_stats_rows = conn.execute(
+        "SELECT item_id, stat_key, value, condition, is_adaptive, value_type FROM item_passive_stats"
+    ).fetchall()
     conn.close()
+
+    passive_stats_map = defaultdict(list)
+    for r in passive_stats_rows:
+        passive_stats_map[r["item_id"]].append({
+            "stat_key":    r["stat_key"],
+            "value":       r["value"],
+            "condition":   r["condition"],
+            "is_adaptive": r["is_adaptive"],
+            "value_type":  r["value_type"],
+        })
 
     stat_cols = [
         "strength", "intelligence", "health", "health_regen",
@@ -73,16 +88,17 @@ def items():
             local_icon = f"/api/icon?url={wiki_url}" if wiki_url else None
 
         result.append({
-            "id":         item_id,
-            "name":       row["name"],
-            "tier":       row["tier"],
-            "category":   row["category"],
-            "cost":       row["cost"],
-            "total_cost": row["total_cost"],
-            "icon_url":   local_icon,
-            "stats":      stats,
-            "passive":    row["passive_text"],
-            "active":     row["active_text"],
+            "id":            item_id,
+            "name":          row["name"],
+            "tier":          row["tier"],
+            "category":      row["category"],
+            "cost":          row["cost"],
+            "total_cost":    row["total_cost"],
+            "icon_url":      local_icon,
+            "stats":         stats,
+            "passive":       row["passive_text"],
+            "active":        row["active_text"],
+            "passive_stats": passive_stats_map.get(item_id, []),
         })
 
     return jsonify(result)

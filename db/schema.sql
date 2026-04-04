@@ -44,6 +44,16 @@ CREATE TABLE IF NOT EXISTS item_passives (
     cooldown     REAL    -- seconds, if mentioned in passive text
 );
 
+CREATE TABLE IF NOT EXISTS item_passive_stats (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id     INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    stat_key    TEXT NOT NULL,   -- matches item_stats column names exactly
+    value       REAL NOT NULL,
+    condition   TEXT,            -- short human-readable note shown in UI, e.g. "when CC'd"
+    is_adaptive INTEGER DEFAULT 0,  -- 1 = adaptive stat (only the dominant str/int branch applies)
+    value_type  TEXT DEFAULT 'flat' -- 'flat' | 'pct_of_item_stat' (value is % of that stat from items)
+);
+
 CREATE TABLE IF NOT EXISTS item_components (
     parent_item_id      INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     component_item_name TEXT    NOT NULL

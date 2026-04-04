@@ -20,8 +20,35 @@ let buildA = [];       // Build A items (up to 6)
 let buildB = [];       // Build B items (up to 6)
 let activeBuild = "A"; // "A" | "B"
 let activeCategory = "All";
+let passiveTogglesA = new Set();  // item IDs with passive triggered in Build A
+let passiveTogglesB = new Set();  // item IDs with passive triggered in Build B
 
-function getActiveBuild() { return activeBuild === "A" ? buildA : buildB; }
+function getActiveBuild()    { return activeBuild === "A" ? buildA : buildB; }
+function getPassiveToggles() { return activeBuild === "A" ? passiveTogglesA : passiveTogglesB; }
+
+// Maps DB stat_key → sumItemStats object key
+const PASSIVE_STAT_KEY_MAP = {
+  health:               "hp",
+  physical_protection:  "physProt",
+  magical_protection:   "magProt",
+  plating:              "plating",
+  dampening:            "dampening",
+  damage_mitigation:    "dmgMit",
+  health_regen:         "health_regen",
+  mana:                 "mana",
+  mana_regen:           "mana_regen",
+  strength:             "strength",
+  intelligence:         "intelligence",
+  movement_speed:       "movement_speed",
+  cooldown_reduction:   "cooldown_reduction",
+  tenacity:             "tenacity",
+  basic_attack_power:   "basic_attack_power",
+  attack_speed:         "attack_speed",
+  lifesteal:            "lifesteal",
+  critical_chance:      "critical_chance",
+  physical_penetration: "physical_penetration",
+  magical_penetration:  "magical_penetration",
+};
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 
@@ -262,8 +289,8 @@ function addItem(id) {
 }
 
 function removeItem(id) {
-  if (activeBuild === "A") buildA = buildA.filter(i => i.id !== id);
-  else                     buildB = buildB.filter(i => i.id !== id);
+  if (activeBuild === "A") { buildA = buildA.filter(i => i.id !== id); passiveTogglesA.delete(id); }
+  else                     { buildB = buildB.filter(i => i.id !== id); passiveTogglesB.delete(id); }
   renderBuildSlots();
   renderItemList();
   recalculate();
@@ -276,24 +303,45 @@ function renderBuildSlots() {
     container.innerHTML = '<div class="build-empty">No items selected</div>';
     return;
   }
+  const toggles = getPassiveToggles();
   container.innerHTML = current.map(item => {
-    const tier    = item.tier ? `T${item.tier}` : "—";
-    const tierCls = item.tier ? `t${item.tier}` : "";
-    const cost    = item.total_cost ? `${item.total_cost}g` : item.cost ? `${item.cost}g` : "";
-    const icon    = item.icon_url
+    const tier       = item.tier ? `T${item.tier}` : "—";
+    const tierCls    = item.tier ? `t${item.tier}` : "";
+    const cost       = item.total_cost ? `${item.total_cost}g` : item.cost ? `${item.cost}g` : "";
+    const icon       = item.icon_url
       ? `<img class="item-icon item-icon-sm" src="${escHtml(item.icon_url)}" alt="" onerror="this.style.display='none'">`
       : `<span class="item-icon-placeholder item-icon-sm"></span>`;
+    const hasPassive = item.passive_stats && item.passive_stats.length > 0;
+    const toggled    = toggles.has(item.id);
+    const conditions = hasPassive
+      ? [...new Set(item.passive_stats.map(p => p.condition))].join(", ")
+      : "";
+    const passiveBtn = hasPassive
+      ? `<button class="passive-toggle ${toggled ? "active" : ""}" data-id="${item.id}"
+                 title="${toggled ? "Passive ON" : "Passive OFF"}: ${escHtml(conditions)}">&#9889;</button>`
+      : "";
     return `<div class="build-item">
       ${icon}
       <span class="item-tier ${tierCls}">${tier}</span>
       <span class="item-name">${escHtml(item.name)}</span>
       <span class="item-cost">${cost}</span>
-      <button class="remove-btn" data-id="${item.id}" title="Remove">✕</button>
+      ${passiveBtn}
+      <button class="remove-btn" data-id="${item.id}" title="Remove">&#x2715;</button>
     </div>`;
   }).join("");
 
   container.querySelectorAll(".remove-btn").forEach(btn => {
     btn.addEventListener("click", () => removeItem(parseInt(btn.dataset.id)));
+  });
+
+  container.querySelectorAll(".passive-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = parseInt(btn.dataset.id);
+      const t = getPassiveToggles();
+      t.has(id) ? t.delete(id) : t.add(id);
+      renderBuildSlots();
+      recalculate();
+    });
   });
 }
 
@@ -310,7 +358,7 @@ function getBaseStats() {
   };
 }
 
-function sumItemStats(buildArr) {
+function sumItemStats(buildArr, toggleSet = new Set()) {
   const s = { hp: 0, physProt: 0, magProt: 0, plating: 0, dampening: 0, dmgMit: 0,
               mana: 0, health_regen: 0, mana_regen: 0, cooldown_reduction: 0,
               attack_speed: 0, movement_speed: 0, lifesteal: 0,
@@ -340,6 +388,13 @@ function sumItemStats(buildArr) {
     s.critical_chance      += st.critical_chance      || 0;
     s.tenacity             += st.tenacity             || 0;
     s.basic_attack_power   += st.basic_attack_power   || 0;
+    // Passive bonuses when toggled
+    if (toggleSet.has(item.id) && item.passive_stats) {
+      for (const ps of item.passive_stats) {
+        const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
+        if (jsKey !== undefined) s[jsKey] = (s[jsKey] || 0) + ps.value;
+      }
+    }
   }
   return s;
 }
@@ -380,8 +435,8 @@ function mergeStats(base, items) {
 
 function recalculate() {
   const base    = getBaseStats();
-  const itemsA  = sumItemStats(buildA);
-  const itemsB  = sumItemStats(buildB);
+  const itemsA  = sumItemStats(buildA, passiveTogglesA);
+  const itemsB  = sumItemStats(buildB, passiveTogglesB);
   const totalA  = mergeStats(base, itemsA);
   const totalB  = mergeStats(base, itemsB);
 

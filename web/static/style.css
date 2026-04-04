@@ -337,6 +337,25 @@ header h1 {
 }
 .build-item .remove-btn:hover { color: var(--red); }
 
+.passive-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 1px 4px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.passive-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.passive-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
 /* ── Search + Filters ── */
 #item-search {
   width: 100%;
