@@ -365,34 +365,52 @@ function sumItemStats(buildArr, toggleSet = new Set()) {
               strength: 0, intelligence: 0,
               physical_penetration: 0, magical_penetration: 0, penetration: 0,
               critical_chance: 0, tenacity: 0, basic_attack_power: 0 };
+
+  // Pass 1: sum base item stats (no passives)
   for (const item of (buildArr || getActiveBuild())) {
     const st = item.stats;
-    s.hp                  += st.health               || 0;
-    s.physProt            += st.physical_protection  || 0;
-    s.magProt             += st.magical_protection   || 0;
-    s.plating             += st.plating              || 0;
-    s.dampening           += st.dampening            || 0;
-    s.dmgMit              += st.damage_mitigation    || 0;
-    s.mana                += st.mana                 || 0;
-    s.health_regen        += st.health_regen         || 0;
-    s.mana_regen          += st.mana_regen           || 0;
-    s.cooldown_reduction  += st.cooldown_reduction   || 0;
-    s.attack_speed        += st.attack_speed         || 0;
-    s.movement_speed      += st.movement_speed       || 0;
-    s.lifesteal           += st.lifesteal            || 0;
-    s.strength            += st.strength             || 0;
-    s.intelligence        += st.intelligence         || 0;
+    s.hp                   += st.health               || 0;
+    s.physProt             += st.physical_protection  || 0;
+    s.magProt              += st.magical_protection   || 0;
+    s.plating              += st.plating              || 0;
+    s.dampening            += st.dampening            || 0;
+    s.dmgMit               += st.damage_mitigation    || 0;
+    s.mana                 += st.mana                 || 0;
+    s.health_regen         += st.health_regen         || 0;
+    s.mana_regen           += st.mana_regen           || 0;
+    s.cooldown_reduction   += st.cooldown_reduction   || 0;
+    s.attack_speed         += st.attack_speed         || 0;
+    s.movement_speed       += st.movement_speed       || 0;
+    s.lifesteal            += st.lifesteal            || 0;
+    s.strength             += st.strength             || 0;
+    s.intelligence         += st.intelligence         || 0;
     s.physical_penetration += st.physical_penetration || 0;
     s.magical_penetration  += st.magical_penetration  || 0;
     s.penetration          += st.penetration          || 0;
     s.critical_chance      += st.critical_chance      || 0;
     s.tenacity             += st.tenacity             || 0;
     s.basic_attack_power   += st.basic_attack_power   || 0;
-    // Passive bonuses when toggled
-    if (toggleSet.has(item.id) && item.passive_stats) {
-      for (const ps of item.passive_stats) {
-        const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
-        if (jsKey !== undefined) s[jsKey] = (s[jsKey] || 0) + ps.value;
+  }
+
+  // Pass 2: apply toggled passive stats
+  // Snapshot base totals so pct_of_item_stat uses pre-passive values
+  const base = { ...s };
+  for (const item of (buildArr || getActiveBuild())) {
+    if (!toggleSet.has(item.id) || !item.passive_stats) continue;
+    // For adaptive items: determine dominant stat from base totals
+    const strDominant = base.strength >= base.intelligence;
+    for (const ps of item.passive_stats) {
+      const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
+      if (jsKey === undefined) continue;
+      // Skip non-dominant branch for adaptive stats
+      if (ps.is_adaptive) {
+        if (ps.stat_key === "strength"     && !strDominant) continue;
+        if (ps.stat_key === "intelligence" && strDominant)  continue;
+      }
+      if (ps.value_type === "pct_of_item_stat") {
+        s[jsKey] = (s[jsKey] || 0) + (base[jsKey] || 0) * ps.value / 100;
+      } else {
+        s[jsKey] = (s[jsKey] || 0) + ps.value;
       }
     }
   }
