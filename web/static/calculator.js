@@ -160,6 +160,12 @@ function bindEvents() {
     renderItemList();
   });
 
+  // Fight duration slider
+  document.getElementById("fight-duration").addEventListener("input", e => {
+    document.getElementById("fight-dur-display").textContent = e.target.value;
+    recalculate();
+  });
+
   // Search box
   document.getElementById("item-search").addEventListener("input", renderItemList);
 
@@ -572,14 +578,27 @@ function calcAllEHP(total) {
   };
 }
 
+function calcAllSustainedEHP(total, fightDuration) {
+  const base = calcAllEHP(total);
+  const regenGain = (total.health_regen || 0) * fightDuration;
+  return {
+    vsAA:     base.vsAA     === Infinity ? Infinity : base.vsAA     + regenGain,
+    vsMagAA:  base.vsMagAA  === Infinity ? Infinity : base.vsMagAA  + regenGain,
+    vsPhysAb: base.vsPhysAb === Infinity ? Infinity : base.vsPhysAb + regenGain,
+    vsMagAb:  base.vsMagAb  === Infinity ? Infinity : base.vsMagAb  + regenGain,
+    vsTrue:   base.vsTrue   === Infinity ? Infinity : base.vsTrue   + regenGain,
+  };
+}
+
 function mergeStats(base, items) {
   return {
-    hp:         base.hp        + items.hp,
-    physProt:   base.physProt  + items.physProt,
-    magProt:    base.magProt   + items.magProt,
-    plating:    base.plating   + items.plating,
-    dampening:  base.dampening + items.dampening,
-    dmgMit:     base.dmgMit    + items.dmgMit,
+    hp:           base.hp        + items.hp,
+    physProt:     base.physProt  + items.physProt,
+    magProt:      base.magProt   + items.magProt,
+    plating:      base.plating   + items.plating,
+    dampening:    base.dampening + items.dampening,
+    dmgMit:       base.dmgMit    + items.dmgMit,
+    health_regen: (base.health_regen || 0) + (items.health_regen || 0),
   };
 }
 
@@ -654,15 +673,20 @@ function recalculate() {
   const itemsB  = sumItemStats(buildB, passiveTogglesB);
   const totalA  = applyPctOfTotalAbilityStats(mergeStats(base, itemsA), godAbilityTogglesA);
   const totalB  = applyPctOfTotalAbilityStats(mergeStats(base, itemsB), godAbilityTogglesB);
+  const fightDuration = parseInt(document.getElementById("fight-duration").value, 10) || 10;
 
   renderBuildCost();
-  renderCompareTable(calcAllEHP(totalA), calcAllEHP(totalB));
+  renderCompareTable(
+    calcAllEHP(totalA), calcAllEHP(totalB),
+    calcAllSustainedEHP(totalA, fightDuration), calcAllSustainedEHP(totalB, fightDuration),
+    fightDuration
+  );
   renderStatComparison(base, itemsA, itemsB);
   const activeItems = activeBuild === "A" ? itemsA : itemsB;
   renderTotalStats(base, activeItems);
   const activeBuildArr    = activeBuild === "A" ? buildA : buildB;
   const activeToggleSet   = activeBuild === "A" ? passiveTogglesA : passiveTogglesB;
-  renderItemDeltas(base, activeItems, activeBuildArr, activeToggleSet);
+  renderItemDeltas(base, activeItems, activeBuildArr, activeToggleSet, fightDuration);
 }
 
 // ── Rendering Results ──────────────────────────────────────────────────────
@@ -675,8 +699,16 @@ const EHP_ROWS = [
   { label: "vs True Damage",        key: "vsTrue",   sub: "HP + DmgMit only" },
 ];
 
-function renderCompareTable(ehpA, ehpB) {
-  const fmt = v => v === Infinity ? "∞" : v.toLocaleString();
+const SUSTAINED_EHP_ROWS = [
+  { label: "vs Phys Basic Attacks", key: "vsAA",     sub: "Static EHP + regen×T" },
+  { label: "vs Mag Basic Attacks",  key: "vsMagAA",  sub: "Static EHP + regen×T" },
+  { label: "vs Phys Abilities",     key: "vsPhysAb", sub: "Static EHP + regen×T" },
+  { label: "vs Mag Abilities",      key: "vsMagAb",  sub: "Static EHP + regen×T" },
+  { label: "vs True Damage",        key: "vsTrue",   sub: "Static EHP + regen×T" },
+];
+
+function renderCompareTable(ehpA, ehpB, sehpA, sehpB, fightDuration) {
+  const fmt = v => v === Infinity ? "∞" : Math.round(v).toLocaleString();
   const container = document.getElementById("compare-table");
 
   const header = `<div class="compare-header">
@@ -686,11 +718,11 @@ function renderCompareTable(ehpA, ehpB) {
     <span class="compare-cell delta-hdr">Δ</span>
   </div>`;
 
-  const rows = EHP_ROWS.map(r => {
-    const a = ehpA[r.key];
-    const b = ehpB[r.key];
+  const makeRows = (rowDefs, objA, objB) => rowDefs.map(r => {
+    const a = objA[r.key];
+    const b = objB[r.key];
     const d = (a === Infinity || b === Infinity) ? null : b - a;
-    const dStr = d === null ? "∞" : d === 0 ? "—" : (d > 0 ? "+" : "") + d.toLocaleString();
+    const dStr = d === null ? "∞" : d === 0 ? "—" : (d > 0 ? "+" : "") + Math.round(d).toLocaleString();
     const dCls = d === null || d === 0 ? "delta-zero" : d > 0 ? "delta-pos" : "delta-neg";
     return `<div class="compare-row">
       <span class="compare-label">${r.label}<br><span class="compare-sub">${r.sub}</span></span>
@@ -700,7 +732,9 @@ function renderCompareTable(ehpA, ehpB) {
     </div>`;
   }).join("");
 
-  container.innerHTML = header + rows;
+  const divider = `<div class="compare-divider">Sustained (${fightDuration}s fight)</div>`;
+
+  container.innerHTML = header + makeRows(EHP_ROWS, ehpA, ehpB) + divider + makeRows(SUSTAINED_EHP_ROWS, sehpA, sehpB);
 }
 
 const DISPLAY_STATS = [
@@ -749,7 +783,7 @@ function renderTotalStats(base, items) {
   container.innerHTML = rows.length ? rows.join("") : '<div class="build-empty">—</div>';
 }
 
-function renderItemDeltas(base, itemTotals, buildArr, toggleSet = new Set()) {
+function renderItemDeltas(base, itemTotals, buildArr, toggleSet = new Set(), fightDuration = 10) {
   const container = document.getElementById("item-deltas");
   if (!buildArr || buildArr.length === 0) {
     container.innerHTML = '<div class="delta-empty">Add items to see contributions</div>';
@@ -772,13 +806,15 @@ function renderItemDeltas(base, itemTotals, buildArr, toggleSet = new Set()) {
     const dPhys  = ehpWith.vsPhysAb - ehpWithout.vsPhysAb;
     const dMag   = ehpWith.vsMagAb  - ehpWithout.vsMagAb;
     const dTrue  = ehpWith.vsTrue   - ehpWithout.vsTrue;
+    const dRegen = Math.round(((totalWithAll.health_regen || 0) - (without.health_regen || 0)) * fightDuration);
 
     const vals = [
-      dAA    ? `<span class="delta-val aa">Phys AA +${dAA.toLocaleString()}</span>`       : "",
-      dMagAA ? `<span class="delta-val mag-aa">Mag AA +${dMagAA.toLocaleString()}</span>` : "",
-      dPhys  ? `<span class="delta-val phys">Phys Ab +${dPhys.toLocaleString()}</span>`   : "",
-      dMag   ? `<span class="delta-val mag">Mag Ab +${dMag.toLocaleString()}</span>`      : "",
-      dTrue  ? `<span class="delta-val true-dmg">True +${dTrue.toLocaleString()}</span>`  : "",
+      dAA    ? `<span class="delta-val aa">Phys AA +${dAA.toLocaleString()}</span>`             : "",
+      dMagAA ? `<span class="delta-val mag-aa">Mag AA +${dMagAA.toLocaleString()}</span>`       : "",
+      dPhys  ? `<span class="delta-val phys">Phys Ab +${dPhys.toLocaleString()}</span>`         : "",
+      dMag   ? `<span class="delta-val mag">Mag Ab +${dMag.toLocaleString()}</span>`            : "",
+      dTrue  ? `<span class="delta-val true-dmg">True +${dTrue.toLocaleString()}</span>`        : "",
+      dRegen ? `<span class="delta-val regen">Regen +${dRegen.toLocaleString()} sEHP</span>`   : "",
     ].filter(Boolean).join("");
 
     return `<div class="delta-row">
