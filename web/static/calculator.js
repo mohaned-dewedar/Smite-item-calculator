@@ -20,11 +20,14 @@ let buildA = [];       // Build A items (up to 6)
 let buildB = [];       // Build B items (up to 6)
 let activeBuild = "A"; // "A" | "B"
 let activeCategory = "All";
-let passiveTogglesA = new Set();  // item IDs with passive triggered in Build A
-let passiveTogglesB = new Set();  // item IDs with passive triggered in Build B
+let passiveTogglesA = new Set();      // item IDs with passive triggered in Build A
+let passiveTogglesB = new Set();      // item IDs with passive triggered in Build B
+let godAbilityTogglesA = new Set();   // ability slot strings toggled in Build A
+let godAbilityTogglesB = new Set();   // ability slot strings toggled in Build B
 
-function getActiveBuild()    { return activeBuild === "A" ? buildA : buildB; }
-function getPassiveToggles() { return activeBuild === "A" ? passiveTogglesA : passiveTogglesB; }
+function getActiveBuild()       { return activeBuild === "A" ? buildA : buildB; }
+function getPassiveToggles()    { return activeBuild === "A" ? passiveTogglesA : passiveTogglesB; }
+function getGodAbilityToggles() { return activeBuild === "A" ? godAbilityTogglesA : godAbilityTogglesB; }
 
 // Maps DB stat_key → sumItemStats object key
 const PASSIVE_STAT_KEY_MAP = {
@@ -125,6 +128,16 @@ function bindEvents() {
 
   document.getElementById("clear-god").addEventListener("click", clearGod);
 
+  document.getElementById("ability-toggle-strip").addEventListener("click", e => {
+    const btn = e.target.closest(".ability-toggle-btn");
+    if (!btn) return;
+    const slot = btn.dataset.slot;
+    const t = getGodAbilityToggles();
+    t.has(slot) ? t.delete(slot) : t.add(slot);
+    renderAbilityToggles();
+    recalculate();
+  });
+
   // Build tabs
   document.querySelectorAll(".build-tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -132,6 +145,7 @@ function bindEvents() {
       document.querySelectorAll(".build-tab").forEach(b => b.classList.toggle("active", b === btn));
       renderBuildSlots();
       renderItemList();
+      renderAbilityToggles();
       recalculate();
     });
   });
@@ -157,6 +171,8 @@ function bindEvents() {
 
 function selectGod(id) {
   selectedGod = allGods.find(g => g.id === id) || null;
+  godAbilityTogglesA.clear();
+  godAbilityTogglesB.clear();
   const nameEl = document.getElementById("god-selected-name");
   const selectedEl = document.getElementById("god-selected");
   const searchEl = document.getElementById("god-search");
@@ -170,11 +186,14 @@ function selectGod(id) {
     searchEl.classList.add("hidden");
   }
   document.getElementById("god-dropdown").classList.add("hidden");
+  renderAbilityToggles();
   applyGodStats();
 }
 
 function clearGod() {
   selectedGod = null;
+  godAbilityTogglesA.clear();
+  godAbilityTogglesB.clear();
   document.getElementById("god-selected").classList.add("hidden");
   const searchEl = document.getElementById("god-search");
   searchEl.classList.remove("hidden");
@@ -185,7 +204,77 @@ function clearGod() {
   document.getElementById("base-hp").value = "1800";
   document.getElementById("base-phys-prot").value = "35";
   document.getElementById("base-mag-prot").value = "35";
+  renderAbilityToggles();
   recalculate();
+}
+
+// EHP-relevant stat keys (flat or pct_of_total)
+const EHP_STAT_KEYS = new Set([
+  "physical_protection", "magical_protection", "health",
+  "damage_mitigation", "dampening", "plating",
+]);
+
+// Map slot string → short abbreviation for the button label
+function slotAbbr(slot) {
+  if (!slot) return "?";
+  const s = slot.toLowerCase();
+  if (s === "passive") return "P";
+  if (s.startsWith("basic")) return "BA";
+  if (s.includes("ultimate")) return "U";
+  const m = s.match(/(\d)/);
+  if (m) return m[1];
+  return slot.slice(0, 2).toUpperCase();
+}
+
+function renderAbilityToggles() {
+  const strip = document.getElementById("ability-toggle-strip");
+  if (!strip) return;
+
+  if (!selectedGod?.ability_stats || Object.keys(selectedGod.ability_stats).length === 0) {
+    strip.innerHTML = "";
+    return;
+  }
+
+  const toggleSet = getGodAbilityToggles();
+  const buttons = [];
+
+  // Sort slots: Passive first, then numbered abilities, then Ult, then others
+  const slotOrder = slot => {
+    const s = slot.toLowerCase();
+    if (s === "passive") return 0;
+    const m = s.match(/^(\d)/);
+    if (m) return parseInt(m[1]);
+    if (s.includes("ultimate")) return 9;
+    if (s.startsWith("basic")) return 10;
+    return 11;
+  };
+
+  const sortedSlots = Object.keys(selectedGod.ability_stats)
+    .filter(slot => selectedGod.ability_stats[slot].stats.some(p => EHP_STAT_KEYS.has(p.stat_key)))
+    .sort((a, b) => slotOrder(a) - slotOrder(b));
+
+  for (const slot of sortedSlots) {
+    const slotData = selectedGod.ability_stats[slot];
+    const active = toggleSet.has(slot);
+    const abbr = slotAbbr(slot);
+    const abilityName = slotData.name || slot;
+    const statSummary = slotData.stats
+      .filter(p => EHP_STAT_KEYS.has(p.stat_key))
+      .map(p => {
+        const k = p.stat_key.replace(/_/g, " ").replace("physical protection", "P.Prot")
+                            .replace("magical protection", "M.Prot")
+                            .replace("damage mitigation", "DmgMit");
+        const pct = p.value_type === "pct_of_total" ? "%" : "";
+        return `+${p.value}${pct} ${k}`;
+      }).join(", ");
+    const onoff = active ? "ON" : "OFF";
+    buttons.push(
+      `<button class="ability-toggle-btn ${active ? "active" : ""}" data-slot="${escHtml(slot)}"
+               title="${escHtml(abilityName)} [${onoff}]: ${escHtml(statSummary)}">${escHtml(abbr)}</button>`
+    );
+  }
+
+  strip.innerHTML = buttons.join("");
 }
 
 function godStatAt(base, perLvl, level) {
@@ -351,14 +440,32 @@ function renderBuildSlots() {
 // ── Calculation ────────────────────────────────────────────────────────────
 
 function getBaseStats() {
-  return {
-    hp:         parseFloat(document.getElementById("base-hp").value)        || 0,
-    physProt:   parseFloat(document.getElementById("base-phys-prot").value) || 0,
-    magProt:    parseFloat(document.getElementById("base-mag-prot").value)  || 0,
-    plating:    parseFloat(document.getElementById("base-plating").value)   || 0,
-    dampening:  parseFloat(document.getElementById("base-dampening").value) || 0,
-    dmgMit:     parseFloat(document.getElementById("base-dmg-mit").value)   || 0,
+  const s = {
+    hp:        parseFloat(document.getElementById("base-hp").value)        || 0,
+    physProt:  parseFloat(document.getElementById("base-phys-prot").value) || 0,
+    magProt:   parseFloat(document.getElementById("base-mag-prot").value)  || 0,
+    plating:   parseFloat(document.getElementById("base-plating").value)   || 0,
+    dampening: parseFloat(document.getElementById("base-dampening").value) || 0,
+    dmgMit:    parseFloat(document.getElementById("base-dmg-mit").value)   || 0,
   };
+
+  if (selectedGod?.ability_stats) {
+    const level = parseInt(document.getElementById("god-level").value) || 1;
+    const toggleSet = getGodAbilityToggles();
+
+    for (const [slot, slotData] of Object.entries(selectedGod.ability_stats)) {
+      if (!toggleSet.has(slot)) continue;
+      for (const ps of slotData.stats) {
+        if (ps.value_type === "pct_of_total") continue; // applied post-merge
+        const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
+        if (!jsKey || s[jsKey] === undefined) continue;
+        const val = (ps.value || 0) + (ps.value_per_level || 0) * (level - 1);
+        s[jsKey] = (s[jsKey] || 0) + val;
+      }
+    }
+  }
+
+  return s;
 }
 
 // Adaptive base stats (condition="adaptive") are always-on — not a toggle passive.
@@ -476,6 +583,28 @@ function mergeStats(base, items) {
   };
 }
 
+/**
+ * Apply pct_of_total ability stat bonuses (e.g. "+20% Protections") AFTER base+items are merged.
+ * Multiplies the relevant stat by (1 + pct/100) for each toggled slot.
+ */
+function applyPctOfTotalAbilityStats(merged, toggleSet) {
+  if (!selectedGod?.ability_stats) return merged;
+  const result = { ...merged };
+  const level = parseInt(document.getElementById("god-level").value) || 1;
+
+  for (const [slot, slotData] of Object.entries(selectedGod.ability_stats)) {
+    if (!toggleSet.has(slot)) continue;
+    for (const ps of slotData.stats) {
+      if (ps.value_type !== "pct_of_total") continue;
+      const jsKey = PASSIVE_STAT_KEY_MAP[ps.stat_key];
+      if (!jsKey || result[jsKey] === undefined) continue;
+      const pct = (ps.value || 0) + (ps.value_per_level || 0) * (level - 1);
+      result[jsKey] = result[jsKey] * (1 + pct / 100);
+    }
+  }
+  return result;
+}
+
 function renderBuildCost() {
   const costOf = arr => arr.reduce((sum, item) => sum + (item.total_cost || item.cost || 0), 0);
   const a = costOf(buildA);
@@ -523,8 +652,8 @@ function recalculate() {
   const base    = getBaseStats();
   const itemsA  = sumItemStats(buildA, passiveTogglesA);
   const itemsB  = sumItemStats(buildB, passiveTogglesB);
-  const totalA  = mergeStats(base, itemsA);
-  const totalB  = mergeStats(base, itemsB);
+  const totalA  = applyPctOfTotalAbilityStats(mergeStats(base, itemsA), godAbilityTogglesA);
+  const totalB  = applyPctOfTotalAbilityStats(mergeStats(base, itemsB), godAbilityTogglesB);
 
   renderBuildCost();
   renderCompareTable(calcAllEHP(totalA), calcAllEHP(totalB));
@@ -627,13 +756,14 @@ function renderItemDeltas(base, itemTotals, buildArr, toggleSet = new Set()) {
     return;
   }
 
-  const totalWithAll = mergeStats(base, itemTotals);
+  const activeAbilityToggles = getGodAbilityToggles();
+  const totalWithAll = applyPctOfTotalAbilityStats(mergeStats(base, itemTotals), activeAbilityToggles);
 
   const rows = buildArr.map(item => {
     // Recompute stats for the build without this item — correctly handles
     // base stats, auto-applied adaptive passives, and toggled passive stats.
     const withoutBuild = buildArr.filter(i => i.id !== item.id);
-    const without = mergeStats(base, sumItemStats(withoutBuild, toggleSet));
+    const without = applyPctOfTotalAbilityStats(mergeStats(base, sumItemStats(withoutBuild, toggleSet)), activeAbilityToggles);
     const ehpWith    = calcAllEHP(totalWithAll);
     const ehpWithout = calcAllEHP(without);
 

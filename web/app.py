@@ -121,7 +121,38 @@ def gods():
         LEFT JOIN god_stats s ON g.id = s.god_id
         ORDER BY g.name
     """).fetchall()
+
+    god_ability_rows = conn.execute("""
+        SELECT a.god_id, a.slot, a.name AS ability_name,
+               s.stat_key, s.value, s.value_per_level,
+               s.condition, s.is_adaptive, s.value_type
+        FROM god_ability_stats s
+        JOIN god_abilities a ON a.id = s.ability_id
+        ORDER BY a.god_id, a.slot
+    """).fetchall()
     conn.close()
+
+    # Build ability_stats map: god_id → {slot → {name, stats[]}}
+    # Deduplicate stats by stat_key per slot (DB may have duplicate ability rows)
+    god_ability_map = {}
+    for r in god_ability_rows:
+        gid = r["god_id"]
+        if gid not in god_ability_map:
+            god_ability_map[gid] = {}
+        slot_map = god_ability_map[gid]
+        slot = r["slot"]
+        if slot not in slot_map:
+            slot_map[slot] = {"name": r["ability_name"], "stats": []}
+        existing_keys = {s["stat_key"] for s in slot_map[slot]["stats"]}
+        if r["stat_key"] not in existing_keys:
+            slot_map[slot]["stats"].append({
+                "stat_key":        r["stat_key"],
+                "value":           r["value"],
+                "value_per_level": r["value_per_level"],
+                "condition":       r["condition"],
+                "is_adaptive":     r["is_adaptive"],
+                "value_type":      r["value_type"] or "flat",
+            })
 
     stat_cols = [
         "hp_base", "hp_per_lvl", "mp_base", "mp_per_lvl",
@@ -142,12 +173,13 @@ def gods():
             god_icon = None
 
         result.append({
-            "id":       god_id,
-            "name":     row["name"],
-            "pantheon": row["pantheon"],
-            "role":     row["role"],
-            "icon_url": god_icon,
-            "stats":    stats,
+            "id":            god_id,
+            "name":          row["name"],
+            "pantheon":      row["pantheon"],
+            "role":          row["role"],
+            "icon_url":      god_icon,
+            "stats":         stats,
+            "ability_stats": god_ability_map.get(god_id, {}),
         })
 
     return jsonify(result)

@@ -356,6 +356,37 @@ header h1 {
   color: var(--bg);
 }
 
+/* ── Ability Toggle Strip ── */
+.ability-toggle-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.ability-toggle-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  min-width: 22px;
+  text-align: center;
+}
+.ability-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ability-toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
 /* ── Build Cost ── */
 .build-cost {
   display: flex;

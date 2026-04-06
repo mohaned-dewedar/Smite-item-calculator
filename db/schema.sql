@@ -68,6 +68,25 @@ CREATE TABLE IF NOT EXISTS gods (
     icon_url    TEXT
 );
 
+CREATE TABLE IF NOT EXISTS god_abilities (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    god_id      INTEGER NOT NULL REFERENCES gods(id) ON DELETE CASCADE,
+    slot        TEXT NOT NULL,   -- 'Passive', '1', '2', '3', 'Ult', free text for stance variants
+    name        TEXT,
+    description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS god_ability_stats (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ability_id      INTEGER NOT NULL REFERENCES god_abilities(id) ON DELETE CASCADE,
+    stat_key        TEXT NOT NULL,
+    value           REAL NOT NULL,
+    value_per_level REAL DEFAULT 0,
+    condition       TEXT,
+    is_adaptive     INTEGER DEFAULT 0,
+    value_type      TEXT DEFAULT 'flat'
+);
+
 CREATE TABLE IF NOT EXISTS god_stats (
     god_id                  INTEGER PRIMARY KEY REFERENCES gods(id) ON DELETE CASCADE,
     hp_base                 REAL,  hp_per_lvl             REAL,

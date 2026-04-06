@@ -16,7 +16,7 @@ import time
 
 from playwright.sync_api import sync_playwright
 
-from parser import _field  # reuse the same |key=value extractor
+from parser import _field, _strip_wiki_markup  # reuse helpers
 
 BASE_URL    = "https://wiki.smite2.com"
 DB_PATH     = os.path.join(os.path.dirname(__file__), "..", "db", "smite2.db")
@@ -35,6 +35,40 @@ def upsert_god(conn, name, wiki_slug, pantheon, role, icon_url):
     )
     conn.commit()
     return conn.execute("SELECT id FROM gods WHERE name=?", (name,)).fetchone()[0]
+
+
+def extract_template_block(wikitext: str, start: int) -> str:
+    """Extract a full {{...}} template block starting at `start`."""
+    depth = 0
+    i = start
+    while i < len(wikitext):
+        if wikitext[i:i+2] == '{{':
+            depth += 1
+            i += 2
+        elif wikitext[i:i+2] == '}}':
+            depth -= 1
+            i += 2
+            if depth == 0:
+                return wikitext[start:i]
+        else:
+            i += 1
+    return wikitext[start:]
+
+
+def upsert_god_abilities(conn, god_id, wikitext):
+    """Extract all {{Ability...}} blocks from wikitext and store in god_abilities."""
+    conn.execute("DELETE FROM god_abilities WHERE god_id=?", (god_id,))
+    for m in re.finditer(r'\{\{Ability', wikitext, re.IGNORECASE):
+        block = extract_template_block(wikitext, m.start())
+        slot  = _field(block, "slot") or "Unknown"
+        name  = _field(block, "name")
+        desc_parts = [_field(block, "description") or "", _field(block, "stats") or ""]
+        desc  = _strip_wiki_markup(" ".join(p for p in desc_parts if p).strip())
+        conn.execute(
+            "INSERT INTO god_abilities (god_id, slot, name, description) VALUES (?,?,?,?)",
+            (god_id, slot, name, desc),
+        )
+    conn.commit()
 
 
 def upsert_god_stats(conn, god_id, stats):
@@ -141,12 +175,6 @@ def extract_god_names(wikitext):
 # Main
 # ---------------------------------------------------------------------------
 
-ONLY_GODS = [
-    "Cerberus", "Charon", "Chiron", "Ganesha", "Gilgamesh",
-    "Janus", "Kali", "Morgan Le Fay", "Ne Zha", "Osiris", "Susano",
-]
-
-
 def main():
     conn = sqlite3.connect(DB_PATH)
 
@@ -170,9 +198,8 @@ def main():
             f"{BASE_URL}/index.php?title=Gods&action=raw",
             wait_until="domcontentloaded", timeout=15_000,
         )
-        all_names = extract_god_names(page.inner_text("body"))
-        god_names = [n for n in all_names if n in ONLY_GODS] if ONLY_GODS else all_names
-        print(f"Found {len(all_names)} gods total, scraping {len(god_names)}")
+        god_names = extract_god_names(page.inner_text("body"))
+        print(f"Found {len(god_names)} gods total")
 
         saved = skipped = 0
         for i, name in enumerate(god_names, 1):
@@ -204,7 +231,11 @@ def main():
             god_id = upsert_god(conn, god["name"], god["wiki_slug"],
                                  god["pantheon"], god["role"], god["icon_url"])
             upsert_god_stats(conn, god_id, god["stats"])
-            print(f"OK (HP {god['stats']['hp_base']})")
+            upsert_god_abilities(conn, god_id, wikitext)
+            ability_count = conn.execute(
+                "SELECT COUNT(*) FROM god_abilities WHERE god_id=?", (god_id,)
+            ).fetchone()[0]
+            print(f"OK (HP {god['stats']['hp_base']}, {ability_count} abilities)")
             saved += 1
             time.sleep(DELAY)
 
